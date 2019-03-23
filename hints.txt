@@ -1,0 +1,124 @@
+Как запустить на Stepic последнюю версию Django на Python 3 и всё это через конфигурационные файлы Gunicorn.
+Python 3 в системе уже есть. Необходимо только установить для него последние версии Django и Gunicorn.
+
+sudo pip3 install django
+sudo pip3 install gunicorn
+У меня установился Gunicorn версии 19.5.0 запомните это число. Теперь необходимо заменить встроенный в систему Gunicorn 17.0, работающий через Python 2, на наш новый. Для этого необходимо отредактировать содержимое 4 файлов (вероятно достаточно исправления только двух, но я исправлял все). Помните, что файлы системные и запускать команду на их изменение, например, nano нужно с префиксом sudo.
+
+/usr/sbin/gunicorn-debian
+/usr/bin/gunicorn
+/usr/bin/gunicorn_django
+/usr/bin/gunicorn_paster
+В первом файле достаточно лишь заменить python на python3 в конце самой первой строки. В остальных помимо этого нужно ещё и заменить версию Gunicron 17.5 на 19.5.0 (или какая установилась у вас).
+
+В комментариях на Stepic одной из самых обсуждаемых тем является запуск Gunicorn при помощи конфигурационных файлов. Но решения, в основном, сводятся к тому, как же обойтись вовсе без конфигурационного файла, и просто запустить его из командной строки, как это делается в сотнях руководств в сети Internet. Если вы всё же хотите запустить Gunicorn "правильно", то можете подсмотреть в мой конфигурационный файл. Обратите внимание, что последние версии Django следует запускать не в режиме 'django', а в режиме обычного 'wsgi', как вы делали со своим приложением на прошлой неделе.
+
+  'mode': 'wsgi',
+Для проверки того, что оба сервера (и ваше простейшее wsgi-приложение, и Django) нормально стартовали, можно использовать команды
+
+curl http://127.0.0.1/hello/?a=bcd
+curl http://127.0.0.1/question/123/
+А для запуска Django вообще без Gunicorn (в целях отладки, а не для того, чтобы обмануть проверяющую систему и побыстрее сдать задание)
+
+python3 manage.py runserver 0.0.0.0:8000
+
+
+рошел задание с использованием python 3.5.3 и django 1.11. Большинство комментариев описывали проблемы, которые возникали, пока проверочная система не была обновлена до последних версий питона и джанги.
+
+Опишу все действия для прохождения этого задания. Надеюсь, кому-нибудь пригодится.
+
+1. Создать проект ask и приложение qa по заданию.
+
+2. Создать тестовый контроллер в файле ask/qa/views.py по заданию.
+
+3. Создать файл ask/qa/urls.py и настроить в нем маршрутизацию. Необходимо, чтобы при любых значениях роута вызывалать одна единственная функция test из ﻿ask/qa/views.py.
+
+4. Настроить маршрутизацию в файле ask/ask/urls.py. Все перечисленные в задании урлы должны ссылаться на ask/qa/urls.py. Например, для URL /login/ это выглядит так: url(r'^login/', include('qa.urls')). Для урла / регулярное выражение будет пустым: r'^$'.
+
+5. Настроить ALLOWED_HOSTS = ['*'] в файле ask/ask/settings.py. Больше я ничего в настройках джанги не менял. DEBUG = True оставлял.
+
+6. Оставить без изменений конфиг gunicorn для hello.py и сам скрипт hello.py.
+
+7. Создать еще один конфиг gunicorn для джанги. От конфига gunicorn для hello.py он отличается портом (как в задании) и значением pythonpath = '/home/box/web/ask'. Не уверен, что вообще прописывать значение pythonpath обязательно; если прописать, все работает. Без pythonpath задание 1.9 не работало, здесь не пробовал.
+
+8. Добавить в конфиг для nginx еще один upstream. Все в конфиге будет два локейшена и два апстрима.
+
+ location ^~ /hello/ отстается без изменений: запросы проксируются на 0.0.0.0:8080.
+
+ location / обрабатывает все запросы, которые не начинаются с /hello/: запросы проксируются на 0.0.0.0:8000.
+
+9. Изменить файл init.sh. Надо запустить сразу два gunicorn с соответствующими конфигами. Все работает без создания символьных ссылок на конфиги gunicorn в папке самого gunicorn и перезапуска gunicorn. Все для gunicron нужны две строки:
+
+ sudo gunicorn -c /home/box/web/etc/gunicorn.conf hello:wsgi_application
+ sudo gunicorn -c /home/box/web/etc/gunicorn-django.conf ask.wsgi:application
+
+Вообще, судя по access логам двух gunicorn, в задании не проверяется работа hello.py скрипта. Но в задании сказано, что "старый hello-world скрипт останется работать на порту 8080", поэтому я оставил все для его работы.
+
+
+
+Всем перед выполнением этого задания рекомендую прочитать первую учебника по джанге на djbook.ru (ask﻿). Как и у всех проходящих данных курс людей, ﻿у меня ﻿после просмотра ﻿лекций ﻿осталось ﻿много вопросов. После прочтения первой части учебника (занимает ﻿30 минут при медленном вдумчивом чтении), ﻿у меня не ﻿﻿осталось ﻿вопросов, как делать данное задание. Там описывается выполнение задания, ﻿очень похожего на это, но с минимальным ﻿﻿﻿количеством ﻿теоретических сведений ﻿и пошаговым объяснением ﻿действий с ﻿кодом ﻿и ﻿командами.
+
+
+# don't forget that in gunicorn configs python 3.5 should be used
+# all changed filed i added to an "edinorogs" directory
+apt-get update
+apt-get install -f python3.5
+curl "https://bootstrap.pypa.io/get-pip.py" -o "get-pip.py"
+python3.5 get-pip.py
+pip install django
+pip install gunicorn
+rm /etc/nginx/sites-enabled/default
+cp /home/box/web/etc/nginx.conf  /e
+tc/nginx/sites-enabled/test.conf
+cp /home/box/web/etc/gunicorn*.conf   /etc/gunicorn.d/
+cp edinorogs/gunicorn-debian /usr/sbin/
+cp edinorogs/gunicorn /usr/bin/
+cp edinorogs/gunicorn_* /usr/bin/
+/etc/init.d/nginx restart
+/etc/init.d/gunicorn restart
+
+
+
+python -c "import django; print(django.get_version())"
+
+ALLOWED_HOSTS = ['*']
+INSTALLED_APPS = ['ask', 'qa', ..]
+
+
+$ ﻿curl http://localhost/﻿
+OK ﻿
+$ ﻿curl http://localhost/login/
+OK ﻿
+$ ﻿curl http://localhost/question/123/
+OK 
+$ ﻿curl http://localhost/ask/
+OK 
+$ ﻿curl http://localhost/popular/
+OK ﻿ a
+$ ﻿curl http://localhost/new
+OK ﻿
+
+gunicorn --bind=0.0.0.0:8000
+
+sudo gunicorn --bind 0.0.0.0:8000 --access-logfile acc.log --error-logfile err.log ask.wsgi:application
+netstat -nlpat\
+
+
+from django.conf.urls import include, url
+
+from django.contrib import admin
+admin.autodiscover()
+
+urlpatterns = [
+    url(r'^', include('qa.urls')),
+    url(r'^admin/', admin.site.urls),
+]
+
+
+from django.conf.urls import url
+from qa.views import question
+
+urlpatterns = [
+    url(r'^(?P<num>\d+)/$', question),
+]
+
